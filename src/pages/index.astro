@@ -1,12 +1,11 @@
 ---
 import BaseLayout from "../layouts/BaseLayout.astro";
 import Icon from "../components/Icon.astro";
+import LorenzHero from "../components/LorenzHero.astro";
 import { site } from "../config/site";
 import { projects } from "../data/projects";
 import { experience } from "../data/resume";
 
-const heroImage =
-  "/hero.jpg";
 const featured = projects.filter((p) => p.featured).slice(0, 3);
 ---
 
@@ -41,8 +40,8 @@ const featured = projects.filter((p) => p.featured).slice(0, 3);
         </div>
       </div>
       <div class="w-full md:w-1/2 md:absolute md:right-0 md:bottom-0 mt-xl md:mt-0">
-        <div class="w-full aspect-[3/4] md:aspect-square rounded-[48px] rounded-tl-[120px] rounded-br-[120px] overflow-hidden border-8 border-background shadow-2xl relative transition-colors duration-500">
-          <img alt="Creative workspace" class="w-full h-full object-cover" src={heroImage} />
+        <div class="w-full aspect-[3/4] md:aspect-square rounded-[48px] rounded-tl-[120px] rounded-br-[120px] overflow-hidden border-8 border-background shadow-2xl relative transition-colors duration-500 bg-surface-container-low">
+          <LorenzHero />
         </div>
       </div>
     </div>

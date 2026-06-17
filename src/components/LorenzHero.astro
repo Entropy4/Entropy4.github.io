@@ -1,0 +1,441 @@
+---
+/**
+ * Interactive Lorenz Attractor ("chaos butterfly").
+ *
+ * - Slowly turntable-rotates; "breathing" = the colour fades and intensifies
+ *   (line opacity pulses), the geometry itself does not scale.
+ * - Sits inset within a rotating 3D lattice of dots that conveys depth.
+ * - Drag (mouse / touch) to reorient freely; 3s after the last drag it eases
+ *   back to the default tilt and resumes auto-rotation.
+ * - Colour gradient + dot colour adapt to light / dark theme (driven by the
+ *   `.dark` class on <html>, watched via MutationObserver).
+ * - A "?" button explains why the Lorenz attractor is here.
+ *
+ * Vanilla canvas — no 3D library, to match the project's zero-JS-deps setup.
+ */
+---
+
+<div
+  class="lorenz-host w-full h-full relative cursor-grab active:cursor-grabbing select-none"
+  data-lorenz
+>
+  <canvas class="lorenz-canvas w-full h-full block" style="touch-action: none;"></canvas>
+
+  <div class="lorenz-help-wrap absolute top-3 right-3 z-20">
+    <button
+      type="button"
+      aria-label="Why Lorenz Attractor?"
+      aria-expanded="false"
+      class="lorenz-help w-7 h-7 rounded-full grid place-items-center bg-surface/70 backdrop-blur border border-outline-variant text-on-surface-variant hover:text-primary hover:border-primary transition-colors font-label-md text-label-sm leading-none"
+    >
+      ?
+    </button>
+    <span
+      class="lorenz-tooltip pointer-events-none absolute right-full top-1/2 -translate-y-1/2 mr-2 whitespace-nowrap rounded-md bg-surface-container-high text-on-surface px-sm py-1 font-label-sm text-label-sm shadow-md opacity-0 transition-opacity duration-200"
+    >
+      Why Lorenz Attractor?
+    </span>
+    <div
+      role="dialog"
+      class="lorenz-popover absolute right-0 top-full mt-2 w-[260px] origin-top-right rounded-2xl bg-surface-container-high border border-outline-variant shadow-xl p-md font-body-md text-body-md leading-relaxed text-on-surface-variant text-left opacity-0 scale-95 -translate-y-1 pointer-events-none transition-all duration-200"
+    >
+      <p>
+        I've been fascinated by Chaos Theory and the Lorenz Attractor since I was a child. This is
+        merely me appreciating its beauty and sharing it with the world!{" "}
+        <a
+          href="https://en.wikipedia.org/wiki/Lorenz_system"
+          target="_blank"
+          rel="noopener noreferrer"
+          class="text-primary hover:text-tertiary underline underline-offset-2"
+        >
+          You can read more about it here.
+        </a>
+      </p>
+    </div>
+  </div>
+</div>
+
+<style>
+  .lorenz-help-wrap:not(.open) .lorenz-help:hover ~ .lorenz-tooltip {
+    opacity: 1;
+  }
+  .lorenz-help-wrap.open .lorenz-popover {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+    pointer-events: auto;
+  }
+</style>
+
+<script>
+  type Stop = [number, number, number];
+
+  const SIGMA = 10;
+  const RHO = 28;
+  const BETA = 8 / 3;
+
+  // Trajectory colour gradients (start -> end of the integrated path).
+  const PALETTE_LIGHT: Stop[] = [
+    [120, 55, 30], // deep rust
+    [148, 73, 44], // primary
+    [214, 125, 92], // warm orange
+    [192, 137, 70], // ochre
+  ];
+  const PALETTE_DARK: Stop[] = [
+    [204, 136, 34], // gold (dark primary)
+    [232, 182, 96],
+    [252, 235, 204], // cream
+    [214, 140, 80],
+  ];
+  // Dot-lattice colour [light, dark].
+  const DOT_LIGHT: Stop = [120, 90, 80];
+  const DOT_DARK: Stop = [150, 168, 200];
+
+  const lerp = (a: number, b: number, t: number) => a + (b - a) * t;
+
+  function sampleStops(stops: Stop[], t: number): Stop {
+    const n = stops.length - 1;
+    const clamped = Math.max(0, Math.min(1, t));
+    const scaled = clamped * n;
+    const i = Math.min(n - 1, Math.floor(scaled));
+    const f = scaled - i;
+    const a = stops[i];
+    const b = stops[i + 1];
+    return [
+      Math.round(lerp(a[0], b[0], f)),
+      Math.round(lerp(a[1], b[1], f)),
+      Math.round(lerp(a[2], b[2], f)),
+    ];
+  }
+
+  function initLorenz(host: HTMLElement) {
+    const canvas = host.querySelector<HTMLCanvasElement>("canvas.lorenz-canvas");
+    if (!canvas) return;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+
+    // ---- Help popover ----------------------------------------------------
+    const wrap = host.querySelector<HTMLElement>(".lorenz-help-wrap");
+    const helpBtn = host.querySelector<HTMLButtonElement>(".lorenz-help");
+    const popover = host.querySelector<HTMLElement>(".lorenz-popover");
+    if (wrap && helpBtn && popover) {
+      helpBtn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        const open = wrap.classList.toggle("open");
+        helpBtn.setAttribute("aria-expanded", String(open));
+      });
+      popover.addEventListener("click", (e) => e.stopPropagation());
+      document.addEventListener("click", (e) => {
+        if (!wrap.contains(e.target as Node)) {
+          wrap.classList.remove("open");
+          helpBtn.setAttribute("aria-expanded", "false");
+        }
+      });
+      document.addEventListener("keydown", (e) => {
+        if (e.key === "Escape") {
+          wrap.classList.remove("open");
+          helpBtn.setAttribute("aria-expanded", "false");
+        }
+      });
+    }
+
+    const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    const isMobile = window.matchMedia("(max-width: 768px)").matches;
+
+    // ---- Generate the attractor once. -----------------------------------
+    const N = isMobile ? 2800 : 5200;
+    const dt = 0.007;
+    const xs = new Float32Array(N);
+    const ys = new Float32Array(N);
+    const zs = new Float32Array(N);
+
+    let x = 0.01,
+      y = 0,
+      z = 0;
+    // Discard the transient that flies in from the origin.
+    for (let i = 0; i < 400; i++) {
+      x += SIGMA * (y - x) * dt;
+      y += (x * (RHO - z) - y) * dt;
+      z += (x * y - BETA * z) * dt;
+    }
+    let cz = 0;
+    for (let i = 0; i < N; i++) {
+      const dx = SIGMA * (y - x);
+      const dy = x * (RHO - z) - y;
+      const dz = x * y - BETA * z;
+      x += dx * dt;
+      y += dy * dt;
+      z += dz * dt;
+      xs[i] = x;
+      ys[i] = y;
+      zs[i] = z;
+      cz += z;
+    }
+    cz /= N; // centroid z (x,y centroids ~ 0)
+
+    // Enlarge the attractor ~20% (so it spans a wider slice of the lattice).
+    const ATTRACTOR_SCALE = 1.2;
+    for (let i = 0; i < N; i++) {
+      xs[i] *= ATTRACTOR_SCALE;
+      ys[i] *= ATTRACTOR_SCALE;
+      zs[i] *= ATTRACTOR_SCALE;
+    }
+    cz *= ATTRACTOR_SCALE;
+
+    // ---- 3D dot lattice that frames the attractor. ----------------------
+    // Constant spacing -> a bigger lattice simply means more dots / volume.
+    const SPACING = 18;
+    const DIV = isMobile ? 5 : 5; // points-per-edge minus one -> (DIV+1)^3 dots (6^3 desktop)
+    const G = (SPACING * DIV) / 2; // half-extent of the lattice cube
+    const dotX: number[] = [];
+    const dotY: number[] = [];
+    const dotZ: number[] = [];
+    for (let i = 0; i <= DIV; i++) {
+      for (let j = 0; j <= DIV; j++) {
+        for (let k = 0; k <= DIV; k++) {
+          dotX.push(-G + (2 * G * i) / DIV);
+          dotY.push(-G + (2 * G * j) / DIV);
+          dotZ.push(-G + (2 * G * k) / DIV);
+        }
+      }
+    }
+    const DOTS = dotX.length;
+    const dpx = new Float32Array(DOTS);
+    const dpy = new Float32Array(DOTS);
+    const ddepth = new Float32Array(DOTS);
+
+    // Fit the canvas to the ATTRACTOR's worst-case radius so it fills the
+    // frame (~80%); the lattice extends past the edges for an immersive feel.
+    let R = 1;
+    for (let i = 0; i < N; i++) {
+      const dzc = zs[i] - cz;
+      const r = Math.sqrt(xs[i] * xs[i] + ys[i] * ys[i] + dzc * dzc);
+      if (r > R) R = r;
+    }
+    const R_DOT = Math.sqrt(3) * G; // lattice extent, for dot depth shading
+
+    // Precompute colour per drawing bucket + dot colour.
+    const BUCKETS = isMobile ? 70 : 110;
+    let colors: string[] = [];
+    let dotRGB: Stop = DOT_LIGHT;
+    let isDark = false;
+    const buildColors = () => {
+      isDark = document.documentElement.classList.contains("dark");
+      const pal = isDark ? PALETTE_DARK : PALETTE_LIGHT;
+      colors = [];
+      for (let b = 0; b < BUCKETS; b++) {
+        const [r, g, bl] = sampleStops(pal, b / (BUCKETS - 1));
+        colors.push(`rgb(${r}, ${g}, ${bl})`);
+      }
+      dotRGB = isDark ? DOT_DARK : DOT_LIGHT;
+    };
+    buildColors();
+
+    // ---- View state ------------------------------------------------------
+    const DEFAULT_PITCH = 0.5236; // 30° forward tilt
+    const AUTO_YAW_SPEED = 0.16; // rad / s
+    const RETURN_DELAY = 3000; // ms after last drag before re-orienting
+
+    let yaw = 0;
+    let pitch = DEFAULT_PITCH;
+    let dragging = false;
+    let lastPointerX = 0;
+    let lastPointerY = 0;
+    let lastInteraction = -1e9; // far in the past -> auto-rotate from start
+
+    let cssW = 0;
+    let cssH = 0;
+
+    const resize = () => {
+      const rect = host.getBoundingClientRect();
+      cssW = Math.max(1, rect.width);
+      cssH = Math.max(1, rect.height);
+      const dpr = Math.min(window.devicePixelRatio || 1, 2);
+      canvas.width = Math.round(cssW * dpr);
+      canvas.height = Math.round(cssH * dpr);
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    };
+    resize();
+    const ro = new ResizeObserver(resize);
+    ro.observe(host);
+
+    // ---- Interaction -----------------------------------------------------
+    const onDown = (e: PointerEvent) => {
+      dragging = true;
+      lastPointerX = e.clientX;
+      lastPointerY = e.clientY;
+      lastInteraction = performance.now();
+      canvas.setPointerCapture(e.pointerId);
+    };
+    const onMove = (e: PointerEvent) => {
+      if (!dragging) return;
+      const dx = e.clientX - lastPointerX;
+      const dy = e.clientY - lastPointerY;
+      lastPointerX = e.clientX;
+      lastPointerY = e.clientY;
+      yaw += dx * 0.01;
+      pitch += dy * 0.01;
+      pitch = Math.max(-1.45, Math.min(1.45, pitch));
+      lastInteraction = performance.now();
+    };
+    const onUp = (e: PointerEvent) => {
+      if (!dragging) return;
+      dragging = false;
+      lastInteraction = performance.now();
+      try {
+        canvas.releasePointerCapture(e.pointerId);
+      } catch {}
+    };
+    canvas.addEventListener("pointerdown", onDown);
+    canvas.addEventListener("pointermove", onMove);
+    canvas.addEventListener("pointerup", onUp);
+    canvas.addEventListener("pointercancel", onUp);
+
+    // React to theme toggle.
+    const themeObserver = new MutationObserver(buildColors);
+    themeObserver.observe(document.documentElement, {
+      attributes: true,
+      attributeFilter: ["class"],
+    });
+
+    // ---- Render loop -----------------------------------------------------
+    const px = new Float32Array(N);
+    const py = new Float32Array(N);
+    let lastT = performance.now();
+
+    const frame = (now: number) => {
+      const dtFrame = Math.min(0.05, (now - lastT) / 1000);
+      lastT = now;
+
+      if (!dragging) {
+        const since = now - lastInteraction;
+        if (since > RETURN_DELAY) {
+          // Ease tilt back to default and resume turntable rotation.
+          pitch += (DEFAULT_PITCH - pitch) * Math.min(1, dtFrame * 2.2);
+          if (!reduceMotion) yaw += AUTO_YAW_SPEED * dtFrame;
+        }
+        // else: hold the user's orientation during the grace period.
+      }
+
+      // Breathing = colour fades right down then blooms bright (opacity +
+      // additive/multiply glow), fixed scale.
+      const pulse = reduceMotion ? 1 : 0.5 + 0.5 * Math.sin(now * 0.001);
+      const scale = (Math.min(cssW, cssH) * 0.5 * 0.85) / R;
+      const ox = cssW / 2;
+      const oy = cssH / 2;
+
+      const cy = Math.cos(yaw);
+      const sy = Math.sin(yaw);
+      const cp = Math.cos(pitch);
+      const sp = Math.sin(pitch);
+
+      // Project attractor.
+      for (let i = 0; i < N; i++) {
+        const ax = xs[i];
+        const ay = ys[i];
+        const az = zs[i] - cz;
+        const X = ax * cy - ay * sy;
+        const Y = ax * sy + ay * cy;
+        const Z2 = Y * sp + az * cp; // vertical (screen up = negative)
+        px[i] = ox + X * scale;
+        py[i] = oy - Z2 * scale;
+      }
+
+      // Project lattice dots (+ depth for size/alpha & draw order).
+      for (let i = 0; i < DOTS; i++) {
+        const ax = dotX[i];
+        const ay = dotY[i];
+        const az = dotZ[i];
+        const X = ax * cy - ay * sy;
+        const Y = ax * sy + ay * cy;
+        const Z2 = Y * sp + az * cp;
+        dpx[i] = ox + X * scale;
+        dpy[i] = oy - Z2 * scale;
+        ddepth[i] = Y * cp - az * sp; // + = farther from camera
+      }
+
+      ctx.clearRect(0, 0, cssW, cssH);
+      ctx.lineCap = "round";
+      ctx.lineJoin = "round";
+
+      // Far dots (behind the attractor).
+      drawDots(false);
+
+      // Attractor: blooming glow underlay + crisp line. The glow uses
+      // "lighter" on dark / "multiply" on light so intensifying reads clearly
+      // against either background; the crisp line's opacity swings widely too.
+      const perBucket = N / BUCKETS;
+      ctx.globalCompositeOperation = isDark ? "lighter" : "multiply";
+      ctx.globalAlpha = lerp(0.04, 0.4, pulse);
+      ctx.lineWidth = isMobile ? 4.5 : 6;
+      drawPath(perBucket);
+      ctx.globalCompositeOperation = "source-over";
+      ctx.globalAlpha = lerp(0.32, 1, pulse);
+      ctx.lineWidth = isMobile ? 1.3 : 1.7;
+      drawPath(perBucket);
+
+      // Near dots (in front) — completes the "inset in a lattice" depth cue.
+      drawDots(true);
+
+      ctx.globalAlpha = 1;
+      rafId = requestAnimationFrame(frame);
+    };
+
+    function drawDots(near: boolean) {
+      const [r, g, b] = dotRGB;
+      for (let i = 0; i < DOTS; i++) {
+        if ((ddepth[i] < 0) !== near) continue;
+        const t = Math.max(0, Math.min(1, ddepth[i] / R_DOT / 2 + 0.5)); // 0 near, 1 far
+        const radius = lerp(2.3, 0.7, t);
+        const alpha = lerp(0.34, 0.07, t);
+        ctx!.globalAlpha = alpha;
+        ctx!.fillStyle = `rgb(${r}, ${g}, ${b})`;
+        ctx!.beginPath();
+        ctx!.arc(dpx[i], dpy[i], radius, 0, Math.PI * 2);
+        ctx!.fill();
+      }
+    }
+
+    function drawPath(perBucket: number) {
+      for (let b = 0; b < BUCKETS; b++) {
+        const start = Math.floor(b * perBucket);
+        const end = Math.min(N - 1, Math.floor((b + 1) * perBucket));
+        if (end <= start) continue;
+        ctx!.strokeStyle = colors[b];
+        ctx!.beginPath();
+        ctx!.moveTo(px[start], py[start]);
+        for (let i = start + 1; i <= end; i++) {
+          ctx!.lineTo(px[i], py[i]);
+        }
+        ctx!.stroke();
+      }
+    }
+
+    let rafId = requestAnimationFrame(frame);
+
+    // Pause when off-screen to save battery.
+    const io = new IntersectionObserver((entries) => {
+      for (const entry of entries) {
+        if (entry.isIntersecting) {
+          if (!rafId) {
+            lastT = performance.now();
+            rafId = requestAnimationFrame(frame);
+          }
+        } else if (rafId) {
+          cancelAnimationFrame(rafId);
+          rafId = 0;
+        }
+      }
+    });
+    io.observe(host);
+  }
+
+  function start() {
+    document.querySelectorAll<HTMLElement>("[data-lorenz]").forEach(initLorenz);
+  }
+
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", start);
+  } else {
+    start();
+  }
+</script>
