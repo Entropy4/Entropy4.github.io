@@ -93,7 +93,7 @@ const featured = projects.filter((p) => p.featured).slice(0, 3);
           featured[1] && (
             <a
               href={featured[1].href ?? "/projects"}
-              class="group relative rounded-[40px] rounded-bl-[8px] border border-outline-variant bg-surface-container hover:bg-surface-container-high transition-colors duration-500 cursor-pointer p-lg flex flex-col justify-between aspect-square"
+              class="group relative rounded-[40px] rounded-bl-[8px] border border-outline-variant bg-surface-container hover:bg-surface-container-high transition-colors duration-500 cursor-pointer p-lg flex flex-col justify-between gap-lg md:gap-0 md:aspect-square"
             >
               <div>
                 <span class="inline-block px-sm py-xs bg-primary-container text-on-primary-container font-label-sm text-label-sm rounded-full mb-md">
