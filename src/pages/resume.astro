@@ -41,10 +41,15 @@ import { experience, education, skills, approach, resumePdf } from "../data/resu
                   <div
                     class:list={[
                       "absolute -left-[29px] top-1 w-[10px] h-[10px] rounded-full border-2 border-background",
-                      i === 0 ? "bg-primary" : "bg-outline-variant",
+                      job.tag ? "bg-tertiary" : i === 0 ? "bg-primary" : "bg-outline-variant",
                     ]}
                   />
                   <div class="bg-surface-container-lowest border border-surface-variant p-lg rounded-xl transition-colors duration-300">
+                    {job.tag && (
+                      <span class="inline-flex items-center gap-xs font-label-sm text-label-sm text-on-tertiary-container bg-tertiary-container px-sm py-xs rounded-full self-start mb-sm">
+                        <Icon name="self_improvement" size={14} /> {job.tag}
+                      </span>
+                    )}
                     <div class="flex flex-col md:flex-row justify-between mb-sm">
                       <h3 class="font-headline-sm text-headline-sm text-on-surface">{job.role}</h3>
                       <span class="font-label-sm text-label-sm text-on-secondary-container bg-secondary-container/30 dark:bg-secondary-container px-sm py-xs rounded-full inline-block mt-xs md:mt-0 self-start">

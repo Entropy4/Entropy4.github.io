@@ -157,12 +157,21 @@ const featured = projects.filter((p) => p.featured).slice(0, 3);
               <div
                 class:list={[
                   "absolute -left-[61px] md:-left-[93px] top-8 w-6 h-6 rounded-full border-4 border-background flex items-center justify-center z-10",
-                  i === 0 ? "bg-secondary" : "bg-primary",
+                  job.tag ? "bg-tertiary" : i === 0 ? "bg-secondary" : "bg-primary",
                 ]}
-              />
-              <span class="inline-block px-sm py-xs bg-surface-variant text-on-surface-variant font-label-sm text-label-sm rounded-full mb-sm">
-                {job.period}
-              </span>
+              >
+                {job.icon && <Icon name={job.icon} size={14} class="text-background" />}
+              </div>
+              <div class="flex flex-wrap items-center gap-xs mb-sm">
+                {job.tag && (
+                  <span class="inline-flex items-center gap-xs px-sm py-xs bg-tertiary-container text-on-tertiary-container font-label-sm text-label-sm rounded-full">
+                    <Icon name="self_improvement" size={14} /> {job.tag}
+                  </span>
+                )}
+                <span class="inline-flex items-center px-sm py-xs bg-surface-variant text-on-surface-variant font-label-sm text-label-sm rounded-full">
+                  {job.period}
+                </span>
+              </div>
               <h3 class="font-headline-sm text-headline-sm text-on-surface mb-xs">{job.role}</h3>
               <h4 class="font-label-md text-label-md text-primary mb-md">{job.org}</h4>
               <p class="font-body-md text-body-md text-on-surface-variant">{job.summary}</p>

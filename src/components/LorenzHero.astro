@@ -29,7 +29,7 @@
       type="button"
       aria-label="Why Lorenz Attractor?"
       aria-expanded="false"
-      class="lorenz-help w-7 h-7 rounded-full grid place-items-center bg-surface/70 backdrop-blur border border-outline-variant text-on-surface-variant hover:text-primary hover:border-primary transition-colors font-label-md text-label-sm leading-none"
+      class="lorenz-help w-8 h-8 rounded-full grid place-items-center bg-primary text-on-primary font-bold shadow-lg ring-2 ring-background/70 hover:bg-tertiary hover:scale-110 transition-all duration-200 font-label-md text-label-md leading-none"
     >
       ?
     </button>
@@ -46,7 +46,7 @@
         I've been fascinated by Chaos Theory and the Lorenz Attractor since I was a child. This is
         merely me appreciating its beauty and sharing it with the world!{" "}
         <a
-          href="https://en.wikipedia.org/wiki/Lorenz_system"
+          href="https://www.reddit.com/r/explainlikeimfive/comments/o0mvog/eli5_the_lorenz_attractor_and_chaos_theory"
           target="_blank"
           rel="noopener noreferrer"
           class="text-primary hover:text-tertiary underline underline-offset-2"
@@ -61,6 +61,16 @@
 <style>
   .lorenz-help-wrap:not(.open) .lorenz-help:hover ~ .lorenz-tooltip {
     opacity: 1;
+  }
+  /* Touch devices can't hover, so always show the label hint until the
+     popover is opened — and make it tappable (it opens the popover too) so it
+     isn't a dead target next to the small button. */
+  @media (max-width: 768px) {
+    .lorenz-help-wrap:not(.open) .lorenz-tooltip {
+      opacity: 1;
+      pointer-events: auto;
+      cursor: pointer;
+    }
   }
   .lorenz-help-wrap.open .lorenz-popover {
     opacity: 1;
@@ -120,12 +130,17 @@
     const wrap = host.querySelector<HTMLElement>(".lorenz-help-wrap");
     const helpBtn = host.querySelector<HTMLButtonElement>(".lorenz-help");
     const popover = host.querySelector<HTMLElement>(".lorenz-popover");
+    const tooltip = host.querySelector<HTMLElement>(".lorenz-tooltip");
     if (wrap && helpBtn && popover) {
-      helpBtn.addEventListener("click", (e) => {
+      const toggle = (e: Event) => {
         e.stopPropagation();
         const open = wrap.classList.toggle("open");
         helpBtn.setAttribute("aria-expanded", String(open));
-      });
+      };
+      helpBtn.addEventListener("click", toggle);
+      // The always-on mobile label is a tap target too, so tapping it (instead
+      // of the small "?") still opens the explanation rather than doing nothing.
+      tooltip?.addEventListener("click", toggle);
       popover.addEventListener("click", (e) => e.stopPropagation());
       document.addEventListener("click", (e) => {
         if (!wrap.contains(e.target as Node)) {
@@ -338,8 +353,14 @@
     const px = new Float32Array(N);
     const py = new Float32Array(N);
     let lastT = performance.now();
+    let rafId = 0;
 
     const frame = (now: number) => {
+      // Schedule the next frame FIRST, so a transient error in the body (e.g.
+      // during the initial layout/font settle) can't strand the loop and leave
+      // a blank canvas. Visibility pausing is handled by start/stopLoop below.
+      rafId = requestAnimationFrame(frame);
+
       const dtFrame = Math.min(0.05, (now - lastT) / 1000);
       lastT = now;
 
@@ -428,7 +449,6 @@
       drawDots(true);
 
       ctx.globalAlpha = 1;
-      rafId = requestAnimationFrame(frame);
     };
 
     function drawDots(near: boolean) {
@@ -548,23 +568,25 @@
       }
     }
 
-    let rafId = requestAnimationFrame(frame);
+    const startLoop = () => {
+      if (rafId) return;
+      lastT = performance.now();
+      rafId = requestAnimationFrame(frame);
+    };
+    const stopLoop = () => {
+      if (!rafId) return;
+      cancelAnimationFrame(rafId);
+      rafId = 0;
+    };
 
-    // Pause when off-screen to save battery.
+    // Pause when off-screen to save battery; resume when back in view.
     const io = new IntersectionObserver((entries) => {
-      for (const entry of entries) {
-        if (entry.isIntersecting) {
-          if (!rafId) {
-            lastT = performance.now();
-            rafId = requestAnimationFrame(frame);
-          }
-        } else if (rafId) {
-          cancelAnimationFrame(rafId);
-          rafId = 0;
-        }
-      }
+      const visible = entries[entries.length - 1].isIntersecting;
+      if (visible) startLoop();
+      else stopLoop();
     });
     io.observe(host);
+    startLoop();
   }
 
   function start() {
