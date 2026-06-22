@@ -1,0 +1,64 @@
+---
+import Icon from "./Icon.astro";
+
+/**
+ * Click-to-play YouTube facade. Shows a poster + play button and only loads the
+ * (privacy-enhanced) iframe once the visitor clicks — no third-party assets until then.
+ */
+interface Props {
+  videoId: string;
+  title: string;
+  /** Optional custom poster; defaults to YouTube's thumbnail for this video. */
+  poster?: string;
+}
+const { videoId, title, poster } = Astro.props;
+const posterSrc = poster ?? `https://i.ytimg.com/vi/${videoId}/maxresdefault.jpg`;
+---
+
+<div
+  class="video-embed group relative w-full aspect-video rounded-3xl overflow-hidden border border-outline-variant/30 bg-surface-container-low"
+  data-video-id={videoId}
+  data-title={title}
+>
+  <button
+    type="button"
+    class="facade absolute inset-0 w-full h-full cursor-pointer"
+    aria-label={`Play demo video: ${title}`}
+  >
+    <img
+      src={posterSrc}
+      alt={`${title} demo thumbnail`}
+      class="absolute inset-0 w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
+      loading="lazy"
+    />
+    <span class="absolute inset-0 bg-black/10 group-hover:bg-black/20 transition-colors duration-300"></span>
+    <span
+      class="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-16 h-16 md:w-20 md:h-20 rounded-full bg-primary text-on-primary flex items-center justify-center shadow-lg scale-95 group-hover:scale-100 transition-transform duration-300"
+    >
+      <Icon name="play_arrow" size={40} fill={1} />
+    </span>
+  </button>
+</div>
+
+<script>
+  document.querySelectorAll<HTMLElement>(".video-embed").forEach((wrap) => {
+    const facade = wrap.querySelector<HTMLButtonElement>(".facade");
+    const videoId = wrap.dataset.videoId;
+    const title = wrap.dataset.title ?? "";
+    if (!facade || !videoId) return;
+
+    facade.addEventListener(
+      "click",
+      () => {
+        const iframe = document.createElement("iframe");
+        iframe.src = `https://www.youtube-nocookie.com/embed/${videoId}?autoplay=1&rel=0`;
+        iframe.title = title;
+        iframe.className = "absolute inset-0 w-full h-full";
+        iframe.allow = "autoplay; encrypted-media; picture-in-picture; fullscreen";
+        iframe.allowFullscreen = true;
+        facade.replaceWith(iframe);
+      },
+      { once: true },
+    );
+  });
+</script>

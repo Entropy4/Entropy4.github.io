@@ -14,9 +14,47 @@ export type Project = {
   icon?: string;
   href?: string;
   featured?: boolean;
+  /** Anchor id for the inline demo-video section on /projects (e.g. "my-demo"). */
+  slug?: string;
+  /** Unlisted YouTube video id (the part after watch?v=). Renders a click-to-play demo. */
+  videoId?: string;
+  /** Internal link to a full writeup (e.g. "/blog/amphoreus-dnd"). Shows a "Read in detail" CTA. */
+  blogHref?: string;
+  /** Technical highlights shown as a feature strip beneath a demo video. */
+  highlights?: { title: string; detail: string }[];
 };
 
 export const projects: Project[] = [
+  {
+    title: "Amphoreus D&D — Multi-Agent LLM Simulation",
+    tag: "AI Engineering",
+    year: "2026",
+    description:
+    "A fully automated multi-agent simulation of a D&D campaign: a Dungeon Master, an Orchestrator/referee, and player-characters, each backed by an LLM, coordinated by a structured engine loop. World state changes only through typed tool calls — never parsed from prose — so every change is logged, replayable, and testable. The engineering focus is on reliable ways to promote and evaluate long-horizon planning in agent behavior, and also observe inter-agent coordination. Ongoing project.",
+    image: "/projects/Amphoreus.jpeg",    // optional custom poster; falls back to the YouTube thumbnail
+    slug: "amphoreus-dnd",
+    videoId: "kjCKjF4DJ-c",
+    href: "/projects#amphoreus-dnd",
+    blogHref: "/blog/amphoreus-dnd",
+    featured: true,
+    highlights: [
+      {
+        title: "Multi-agent orchestration",
+        detail:
+          "Three distinct cognitive roles coordinated by a 4-stroke turn loop; world state mutates only through typed, logged tool calls, never parsed prose.",
+      },
+      {
+        title: "Search-earned, typed memory",
+        detail:
+          "Agents pull top-K relevant context from owned, vector-indexed stores (ChromaDB); provider-independent, so any role can run a different model.",
+      },
+      {
+        title: "Evaluation of non-deterministic agents",
+        detail:
+          "A variance-aware harness (N≥3 per condition, distributions not point values, an independent LLM-judge, pre-registered thresholds) to help decide what to build by measuring first.",
+      },
+    ],
+  },
   {
     title: "Accessible Wheelchair Routing",
     tag: "ML Research",

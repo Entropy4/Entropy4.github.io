@@ -52,7 +52,7 @@ const featured = projects.filter((p) => p.featured).slice(0, 3);
     <div class="mb-xl text-center md:text-left">
       <h2 class="font-headline-md text-headline-md text-on-surface mb-sm">Featured Projects</h2>
       <p class="font-body-md text-body-md text-on-surface-variant max-w-xl md:mx-0 mx-auto">
-        Selected research and applied machine-learning work.
+        A few highlights below — full write-ups, the demo, and details live on the Projects page.
       </p>
     </div>
     <div class="flex flex-col md:flex-row gap-lg">
@@ -74,6 +74,11 @@ const featured = projects.filter((p) => p.featured).slice(0, 3);
                   <div class="absolute inset-0 flex items-center justify-center text-on-primary-container/70">
                     <Icon name={featured[0].icon ?? "folder"} size={72} />
                   </div>
+                )}
+                {featured[0].videoId && (
+                  <span class="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-14 h-14 rounded-full bg-primary/90 text-on-primary flex items-center justify-center shadow-lg scale-95 group-hover:scale-100 transition-transform duration-300">
+                    <Icon name="play_arrow" size={32} fill={1} />
+                  </span>
                 )}
               </div>
               <div class="px-md pb-md pt-sm">
@@ -135,6 +140,11 @@ const featured = projects.filter((p) => p.featured).slice(0, 3);
           )
         }
       </div>
+    </div>
+    <div class="mt-lg text-center md:text-left">
+      <a class="inline-flex items-center gap-xs font-label-md text-label-md text-primary hover:text-tertiary transition-colors" href="/projects">
+        See all projects in full detail <Icon name="arrow_forward" size={18} />
+      </a>
     </div>
   </section>
 

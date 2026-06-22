@@ -1,9 +1,12 @@
 ---
 import BaseLayout from "../layouts/BaseLayout.astro";
 import Icon from "../components/Icon.astro";
+import VideoEmbed from "../components/VideoEmbed.astro";
 import { projects } from "../data/projects";
 
-const [p1, p2, p3, ...rest] = projects;
+const videoProjects = projects.filter((p) => p.videoId);
+const gallery = projects.filter((p) => !p.videoId);
+const [p1, p2, p3, ...rest] = gallery;
 const pebble = ["pebble-shape", "pebble-shape-2", "pebble-shape-3"];
 ---
 
@@ -15,6 +18,41 @@ const pebble = ["pebble-shape", "pebble-shape-2", "pebble-shape-3"];
         Research and applied machine-learning projects, with links to published papers and code.
       </p>
     </header>
+
+    {
+      videoProjects.map((p) => (
+        <section id={p.slug} class="mb-xl scroll-mt-32 flex flex-col gap-lg bg-surface-container-low border border-outline-variant/30 rounded-3xl p-lg md:p-xl">
+          <div class="flex flex-col md:flex-row gap-lg md:gap-xl items-center">
+            <div class="w-full md:w-2/5 flex flex-col gap-sm">
+              <div class="flex items-center gap-sm">
+                <span class="bg-primary-container text-on-primary-container px-3 py-1 rounded-full font-label-sm text-label-sm">{p.tag}</span>
+                {p.year && <span class="text-outline font-label-sm text-label-sm">{p.year}</span>}
+              </div>
+              <h2 class="font-headline-md text-headline-md text-on-surface">{p.title}</h2>
+              <p class="font-body-lg text-body-lg text-on-surface-variant">{p.description}</p>
+              {p.blogHref && (
+                <a href={p.blogHref} class="self-start mt-xs text-primary font-label-md text-label-md flex items-center gap-xs hover:text-tertiary transition-colors duration-300">
+                  Read in detail <Icon name="arrow_forward" size={18} />
+                </a>
+              )}
+            </div>
+            <div class="w-full md:w-3/5">
+              <VideoEmbed videoId={p.videoId!} title={p.title} poster={p.image} />
+            </div>
+          </div>
+          {p.highlights && (
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-md">
+              {p.highlights.map((h) => (
+                <div class="bg-surface-container-high border border-outline-variant/30 rounded-2xl p-md flex flex-col gap-xs">
+                  <h3 class="font-label-lg text-label-lg text-on-surface">{h.title}</h3>
+                  <p class="font-body-md text-body-md text-on-surface-variant">{h.detail}</p>
+                </div>
+              ))}
+            </div>
+          )}
+        </section>
+      ))
+    }
 
     <div class="grid grid-cols-1 md:grid-cols-12 gap-lg md:gap-xl items-start">
       {
