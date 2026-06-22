@@ -12,7 +12,7 @@ export const site = {
   role: "AI & Machine Learning Engineer",
   /** Default meta description for SEO. */
   description:
-    "Founding AI engineer and published ML researcher. I build LLM-powered retrieval systems and high-performance machine learning pipelines, with peer-reviewed research spanning astronomy and accessible robotics.",
+    "Founding AI engineer and published ML researcher. I build LLM-powered retrieval and multi-agent systems alongside high-performance machine learning pipelines, backed by peer-reviewed research spanning astronomy and accessible robotics.",
   /** Contact email (used by the Contact button + footer). */
   email: "ssmenon761@gmail.com",
   /** Footer line. */
